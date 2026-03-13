@@ -14,6 +14,8 @@ import {
   WORK_DAYS,
   WORK_PREFERENCES,
 } from "@/constants";
+import { useAppContext } from "@/contexts/AppContext";
+import { useActor } from "@/hooks/useActor";
 import { useRegisterCustomer, useRegisterProvider } from "@/hooks/useQueries";
 import { Loader2 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
@@ -23,6 +25,8 @@ import { toast } from "sonner";
 type Role = "customer" | "provider";
 
 export function RegisterPage({ onSuccess }: { onSuccess: () => void }) {
+  const { navigate, setCustomer, setProvider } = useAppContext();
+  const { actor } = useActor();
   const [role, setRole] = useState<Role | null>(null);
   const [step, setStep] = useState<"role" | "form">("role");
 
@@ -63,7 +67,19 @@ export function RegisterPage({ onSuccess }: { onSuccess: () => void }) {
           mobile: custMobile,
           baseLocation: custLocation,
         });
+        // Fetch fresh profile and navigate directly
+        try {
+          if (actor) {
+            const freshProfile = await actor.getMyProfile();
+            if (freshProfile && freshProfile.__kind__ === "customer") {
+              setCustomer(freshProfile.customer);
+            }
+          }
+        } catch {
+          // ignore profile fetch error, dashboard will handle it
+        }
         toast.success("Registration successful! Welcome aboard.");
+        navigate("customer-home");
         onSuccess();
       } else if (role === "provider") {
         if (
@@ -88,7 +104,19 @@ export function RegisterPage({ onSuccess }: { onSuccess: () => void }) {
           ratePerHour: BigInt(Number.parseInt(provRate) || 0),
           workPreference: provPreferences,
         });
+        // Fetch fresh profile and navigate directly
+        try {
+          if (actor) {
+            const freshProfile = await actor.getMyProfile();
+            if (freshProfile && freshProfile.__kind__ === "provider") {
+              setProvider(freshProfile.provider);
+            }
+          }
+        } catch {
+          // ignore profile fetch error, dashboard will handle it
+        }
         toast.success("Registration successful! Awaiting admin approval.");
+        navigate("provider-dashboard");
         onSuccess();
       }
     } catch {

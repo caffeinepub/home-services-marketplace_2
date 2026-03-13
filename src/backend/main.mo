@@ -5,7 +5,6 @@ import Iter "mo:core/Iter";
 import Order "mo:core/Order";
 import Text "mo:core/Text";
 import Runtime "mo:core/Runtime";
-import Principal "mo:core/Principal";
 import Time "mo:core/Time";
 
 import AccessControl "authorization/access-control";
@@ -118,11 +117,8 @@ actor {
   include MixinAuthorization(accessControlState);
 
   public shared ({ caller }) func registerCustomer(name : Text, mobile : Text, baseLocation : Text) : async CustomerID {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can register as customers");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can register as customers");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in to register");
     };
     let count = switch (customerCounter.get("customer")) {
       case (null) { 1 };
@@ -152,11 +148,8 @@ actor {
     ratePerHour : Nat,
     workPreference : [Text]
   ) : async ProviderID {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can register as providers");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can register as providers");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in to register");
     };
     let count = switch (providerCounter.get("provider")) {
       case (null) { 1 };
@@ -189,11 +182,8 @@ actor {
     #customer : Customer;
     #provider : ServiceProvider;
   } {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can view profiles");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in to view profile");
     };
     for ((_, customer) in customers.entries()) {
       if (customer.userId == caller) { return #customer(customer) };
@@ -216,11 +206,8 @@ actor {
     ratePerHour : Nat,
     workPreference : [Text]
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update provider profiles");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can update provider profiles");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
     switch (serviceProviders.get(providerId)) {
       case (null) {
@@ -395,13 +382,9 @@ actor {
     serviceRequest : Text,
     serviceType : Text
   ) : async WorkOrderID {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create work orders");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can create work orders");
-    };
-    // Verify the customer exists and belongs to the caller
     switch (customers.get(customerId)) {
       case (null) { Runtime.trap("Customer not found") };
       case (?customer) {
@@ -432,13 +415,9 @@ actor {
   };
 
   public query ({ caller }) func getMyWorkOrders(customerId : CustomerID) : async [WorkOrder] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view work orders");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can view work orders");
-    };
-    // Verify the customer belongs to the caller
     switch (customers.get(customerId)) {
       case (null) { Runtime.trap("Customer not found") };
       case (?customer) {
@@ -454,11 +433,8 @@ actor {
   public query ({ caller }) func getProvidersByServiceArea(
     customerLocation : Text,
   ) : async FetchProvidersResponse {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can search for providers");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can search for providers");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
     let matchingProvidersList = List.empty<ServiceProvider>();
 
@@ -482,16 +458,12 @@ actor {
     workOrderId : WorkOrderID,
     providerId : ProviderID,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can assign providers");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can assign providers");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
     switch (workOrders.get(workOrderId)) {
       case (null) { Runtime.trap("Work order not found") };
       case (?workOrder) {
-        // Verify the work order belongs to a customer owned by the caller
         switch (customers.get(workOrder.customerId)) {
           case (null) { Runtime.trap("Customer not found") };
           case (?customer) {
@@ -519,13 +491,9 @@ actor {
   public query ({ caller }) func getProviderWorkOrders(
     providerId : ProviderID,
   ) : async [WorkOrder] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view provider work orders");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can view provider work orders");
-    };
-    // Verify the provider belongs to the caller
     switch (serviceProviders.get(providerId)) {
       case (null) { Runtime.trap("Provider not found") };
       case (?provider) {
@@ -542,20 +510,16 @@ actor {
     workOrderId : WorkOrderID,
     status : WorkOrderStatus,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update work order status");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can update work order status");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
     switch (workOrders.get(workOrderId)) {
       case (null) { Runtime.trap("Work order not found") };
       case (?workOrder) {
-        // Verify the work order is assigned to a provider owned by the caller
         switch (workOrder.assignedProviderId) {
           case (null) { Runtime.trap("Work order has no assigned provider") };
-          case (?providerId) {
-            switch (serviceProviders.get(providerId)) {
+          case (?pId) {
+            switch (serviceProviders.get(pId)) {
               case (null) { Runtime.trap("Provider not found") };
               case (?provider) {
                 if (provider.userId != caller) {
@@ -586,13 +550,9 @@ actor {
     paymentMode : PaymentMode,
     amount : Nat,
   ) : async PaymentID {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can create payments");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can create payments");
-    };
-    // Verify the work order exists and belongs to a customer owned by the caller
     switch (workOrders.get(workOrderId)) {
       case (null) { Runtime.trap("Work order not found") };
       case (?workOrder) {
@@ -627,16 +587,12 @@ actor {
     paymentId : PaymentID,
     status : PaymentStatus,
   ) : async () {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can update payment status");
-    };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can update payment status");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
     switch (payments.get(paymentId)) {
       case (null) { Runtime.trap("Payment not found") };
       case (?payment) {
-        // Verify the payment belongs to a work order owned by the caller
         switch (workOrders.get(payment.workOrderId)) {
           case (null) { Runtime.trap("Work order not found") };
           case (?workOrder) {
@@ -708,13 +664,9 @@ actor {
   public query ({ caller }) func getProviderEarnings(
     providerId : ProviderID,
   ) : async ProviderEarnings {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view provider earnings");
+    if (caller.isAnonymous()) {
+      Runtime.trap("Unauthorized: Must be logged in");
     };
-    if (not (UserApproval.isApproved(approvalState, caller))) {
-      Runtime.trap("Unauthorized: Only approved users can view provider earnings");
-    };
-    // Verify the provider belongs to the caller
     switch (serviceProviders.get(providerId)) {
       case (null) { Runtime.trap("Provider not found") };
       case (?provider) {
