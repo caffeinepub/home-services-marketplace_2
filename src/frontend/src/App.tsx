@@ -20,12 +20,24 @@ function AppRouter() {
   const { page, navigate, setCustomer, setProvider } = useAppContext();
 
   const { data: role, isLoading: roleLoading } = useCallerRole();
-  const { data: profile, isLoading: profileLoading } = useMyProfile();
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isFetching: profileFetching,
+  } = useMyProfile();
 
   const [routed, setRouted] = useState(false);
 
   const doRoute = useCallback(() => {
-    if (!isLoggedIn || roleLoading || profileLoading || routed) return;
+    // Block routing while profile is loading or background-refetching
+    if (
+      !isLoggedIn ||
+      roleLoading ||
+      profileLoading ||
+      profileFetching ||
+      routed
+    )
+      return;
 
     if (role === "admin") {
       navigate("admin-dashboard");
@@ -49,6 +61,7 @@ function AppRouter() {
     isLoggedIn,
     roleLoading,
     profileLoading,
+    profileFetching,
     routed,
     role,
     profile,
@@ -90,13 +103,8 @@ function AppRouter() {
   }
 
   if (page === "register") {
-    return (
-      <RegisterPage
-        onSuccess={() => {
-          setRouted(false);
-        }}
-      />
-    );
+    // onSuccess intentionally does nothing -- registration already navigates explicitly
+    return <RegisterPage onSuccess={() => {}} />;
   }
 
   if (
