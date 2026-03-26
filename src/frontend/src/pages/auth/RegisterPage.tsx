@@ -227,19 +227,13 @@ export function RegisterPage({ onSuccess }: { onSuccess: () => void }) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label>Base Location</Label>
-                  <Select value={custLocation} onValueChange={setCustLocation}>
-                    <SelectTrigger data-ocid="register.location.select">
-                      <SelectValue placeholder="Select your area" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {LOCATIONS.map((l) => (
-                        <SelectItem key={l} value={l}>
-                          {l}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Address / Pickup Location</Label>
+                  <Input
+                    value={custLocation}
+                    onChange={(e) => setCustLocation(e.target.value)}
+                    placeholder="Enter your address (Street, Area, Landmark)"
+                    data-ocid="register.location.input"
+                  />
                 </div>
 
                 <Button
